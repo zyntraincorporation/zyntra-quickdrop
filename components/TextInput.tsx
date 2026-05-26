@@ -1,12 +1,12 @@
 'use client';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Clipboard, X } from 'lucide-react';
 import { pasteFromClipboard, cn } from '../lib/utils';
 
 interface Props {
   onSend: (text: string) => Promise<void>;
-  onTyping: (isTyping: boolean) => void;
+  onTyping: (isTyping: boolean) => void | Promise<void>;
   disabled?: boolean;
 }
 
@@ -16,11 +16,19 @@ export default function TextInput({ onSend, onTyping, disabled }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    onTyping(true);
-    typingTimerRef.current = setTimeout(() => onTyping(false), 2000);
+    void onTyping(true);
+    typingTimerRef.current = setTimeout(() => {
+      void onTyping(false);
+    }, 2000);
 
     // Auto-resize
     const ta = textareaRef.current;
@@ -33,7 +41,7 @@ export default function TextInput({ onSend, onTyping, disabled }: Props) {
   const handleSend = useCallback(async () => {
     if (!text.trim() || sending || disabled) return;
     setSending(true);
-    onTyping(false);
+    void onTyping(false);
     try {
       await onSend(text);
       setText('');

@@ -2,19 +2,20 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
 import { Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { copyToClipboard } from '../lib/utils';
 
 interface Props {
   code: string;
-  sessionId: string;
 }
 
-export default function QRDisplay({ code, sessionId }: Props) {
+export default function QRDisplay({ code }: Props) {
   const [copied, setCopied] = useState(false);
-  const pairUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/pair?code=${code}`
-    : '';
+  const [pairUrl, setPairUrl] = useState('');
+
+  useEffect(() => {
+    setPairUrl(`${window.location.origin}/pair?code=${code}`);
+  }, [code]);
 
   const handleCopy = async () => {
     await copyToClipboard(pairUrl);

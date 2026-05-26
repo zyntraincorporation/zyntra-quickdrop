@@ -55,14 +55,6 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-
-  // Experimental features
-  experimental: {
-    optimizeCss: true,
-    turbo: {
-      rules: {},
-    },
-  },
 };
 
 export default nextConfig;

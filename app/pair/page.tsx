@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, QrCode, Keyboard, ArrowLeft, Loader } from 'lucide-react';
 import QRDisplay from '../../components/QRDisplay';
@@ -11,7 +11,6 @@ type Mode = 'choose' | 'create' | 'join';
 
 export default function PairPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>('choose');
   const [joinCode, setJoinCode] = useState('');
   const [pairInfo, setPairInfo] = useState<{ sessionId: string; code: string } | null>(null);
@@ -21,12 +20,12 @@ export default function PairPage() {
 
   // Pre-fill code from URL
   useEffect(() => {
-    const code = searchParams.get('code');
+    const code = new URLSearchParams(window.location.search).get('code');
     if (code) {
       setJoinCode(code.toUpperCase());
       setMode('join');
     }
-  }, [searchParams]);
+  }, []);
 
   const handleCreate = async () => {
     if (!deviceId) return;
@@ -140,7 +139,7 @@ export default function PairPage() {
                 <p className="text-zinc-500 text-sm">Scan this QR code on your other device, or share the pair link.</p>
               </div>
 
-              <QRDisplay code={pairInfo.code} sessionId={pairInfo.sessionId} />
+              <QRDisplay code={pairInfo.code} />
 
               <motion.div
                 className="w-full bg-white/4 border border-white/8 rounded-2xl p-4 text-center"

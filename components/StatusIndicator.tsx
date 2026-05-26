@@ -12,7 +12,6 @@ interface Props {
 export default function StatusIndicator({ devices, myDeviceId, isOnline }: Props) {
   const others = devices.filter(d => d.id !== myDeviceId);
   const paired = others.length > 0;
-  const otherOnline = others.some(d => d.online);
 
   return (
     <div className="flex items-center gap-2">

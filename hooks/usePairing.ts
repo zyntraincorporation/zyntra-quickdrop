@@ -1,14 +1,19 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createSession, findSessionByCode, joinSession, getSession } from '../lib/firestore';
 import { generatePairCode } from '../lib/auth';
 import { storeSessionId, getStoredSessionId } from '../lib/utils';
 
 export const usePairing = () => {
-  const [sessionId, setSessionId] = useState<string>(getStoredSessionId() || '');
+  const [sessionId, setSessionId] = useState<string>('');
   const [pairCode, setPairCode] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const stored = getStoredSessionId();
+    if (stored) setSessionId(stored);
+  }, []);
 
   const createNewSession = useCallback(async (deviceId: string): Promise<{ sessionId: string; code: string }> => {
     setLoading(true);

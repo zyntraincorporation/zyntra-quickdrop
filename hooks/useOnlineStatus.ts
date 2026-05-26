@@ -3,18 +3,20 @@ import { useState, useEffect } from 'react';
 import { setDeviceOnline } from '../lib/firestore';
 
 export const useOnlineStatus = (deviceId: string, sessionId: string) => {
-  const [isOnline, setIsOnline] = useState(
-    typeof window !== 'undefined' ? navigator.onLine : true
-  );
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    setIsOnline(navigator.onLine);
+
     const onOnline = () => {
       setIsOnline(true);
-      if (deviceId && sessionId) setDeviceOnline(deviceId, true);
+      if (deviceId && sessionId) void setDeviceOnline(deviceId, true);
     };
     const onOffline = () => {
       setIsOnline(false);
-      if (deviceId && sessionId) setDeviceOnline(deviceId, false);
+      if (deviceId && sessionId) void setDeviceOnline(deviceId, false);
     };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
@@ -25,13 +27,16 @@ export const useOnlineStatus = (deviceId: string, sessionId: string) => {
   }, [deviceId, sessionId]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     if (!deviceId || !sessionId) return;
-    setDeviceOnline(deviceId, true);
-    const handleUnload = () => setDeviceOnline(deviceId, false);
+    void setDeviceOnline(deviceId, true);
+    const handleUnload = () => {
+      void setDeviceOnline(deviceId, false);
+    };
     window.addEventListener('beforeunload', handleUnload);
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
-      setDeviceOnline(deviceId, false);
+      void setDeviceOnline(deviceId, false);
     };
   }, [deviceId, sessionId]);
 

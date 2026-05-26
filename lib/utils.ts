@@ -16,14 +16,21 @@ export const formatTime = (timestamp: number): string => {
 };
 
 export const truncate = (text: string, len = 60): string =>
-  text.length > len ? text.slice(0, len) + '…' : text;
+  text.length > len ? `${text.slice(0, len)}...` : text;
 
 export const copyToClipboard = async (text: string): Promise<boolean> => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+
   try {
-    if (navigator.clipboard) {
+    if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
       return true;
     }
+
+    if (typeof document === 'undefined') return false;
+
     const el = document.createElement('textarea');
     el.value = text;
     el.style.position = 'fixed';
@@ -39,6 +46,10 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
 };
 
 export const pasteFromClipboard = async (): Promise<string> => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return '';
+  }
+
   try {
     if (navigator.clipboard?.readText) {
       return await navigator.clipboard.readText();
@@ -50,7 +61,7 @@ export const pasteFromClipboard = async (): Promise<string> => {
 };
 
 export const vibrate = (pattern: number | number[] = 50): void => {
-  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+  if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate(pattern);
   }
 };
@@ -58,7 +69,13 @@ export const vibrate = (pattern: number | number[] = 50): void => {
 export const playSound = (type: 'send' | 'receive' | 'copy'): void => {
   if (typeof window === 'undefined') return;
   try {
-    const ctx = new AudioContext();
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioContextCtor) return;
+
+    const ctx = new AudioContextCtor();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -100,16 +117,20 @@ export const loadSettings = (): AppSettings => {
 };
 
 export const saveSettings = (settings: AppSettings): void => {
+  if (typeof window === 'undefined') return;
   localStorage.setItem('qd_settings', JSON.stringify(settings));
 };
 
 export const getStoredSessionId = (): string | null =>
   typeof window !== 'undefined' ? localStorage.getItem('qd_session_id') : null;
 
-export const storeSessionId = (id: string): void =>
+export const storeSessionId = (id: string): void => {
+  if (typeof window === 'undefined') return;
   localStorage.setItem('qd_session_id', id);
+};
 
 export const clearStoredSession = (): void => {
+  if (typeof window === 'undefined') return;
   localStorage.removeItem('qd_session_id');
   localStorage.removeItem('qd_device_id');
 };

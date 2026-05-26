@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { signInAnonymous, generateDeviceId, getDeviceType } from '../lib/auth';
-import { upsertDevice, setDeviceOnline } from '../lib/firestore';
-import { loadSettings } from '../lib/utils';
+import { upsertDevice } from '../lib/firestore';
+import { DEFAULT_SETTINGS, loadSettings } from '../lib/utils';
 import { Device, AppSettings } from '../types';
 import { User } from 'firebase/auth';
 import { onUserChange } from '../lib/auth';
@@ -11,7 +11,7 @@ export const useDevice = () => {
   const [user, setUser] = useState<User | null>(null);
   const [deviceId, setDeviceId] = useState<string>('');
   const [device, setDevice] = useState<Device | null>(null);
-  const [settings, setSettings] = useState<AppSettings>(loadSettings());
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export const useDevice = () => {
       const id = generateDeviceId();
       const type = getDeviceType();
       const s = loadSettings();
-      const nickname = s.deviceNickname || (type === 'mobile' ? '📱 Mobile' : '💻 Desktop');
+      const nickname = s.deviceNickname || (type === 'mobile' ? 'Mobile Device' : 'Desktop Device');
       const d: Device = {
         id,
         nickname,
@@ -47,15 +47,19 @@ export const useDevice = () => {
 
   const registerDevice = useCallback(async (sessionId: string) => {
     if (!device) return;
-    const updated = { ...device, sessionId };
-    setDevice(updated);
+    const updated = { ...device, sessionId, online: true };
+    if (device.sessionId !== sessionId || !device.online) {
+      setDevice(updated);
+    }
     await upsertDevice({ ...updated, online: true });
   }, [device]);
 
   const updateNickname = useCallback(async (nickname: string, sessionId: string) => {
     if (!device) return;
     const updated = { ...device, nickname };
-    setDevice(updated);
+    if (device.nickname !== nickname) {
+      setDevice(updated);
+    }
     if (sessionId) {
       await upsertDevice({ ...updated, sessionId });
     }

@@ -1,9 +1,8 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Settings, QrCode, Copy, Check, Search, X, Loader } from 'lucide-react';
-import { AnimatePresence as AP } from 'framer-motion';
+import { Zap, Settings, QrCode, Copy, Search, X, Loader } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 import MessageBubble from '../../components/MessageBubble';
@@ -11,46 +10,55 @@ import TextInput from '../../components/TextInput';
 import TypingIndicator from '../../components/TypingIndicator';
 import StatusIndicator from '../../components/StatusIndicator';
 import InstallButton from '../../components/InstallButton';
-import { IncomingToast, showIncomingToast } from '../../components/Toast';
+import { showIncomingToast } from '../../components/Toast';
 
 import { useDevice } from '../../hooks/useDevice';
-import { usePairing } from '../../hooks/usePairing';
 import { useMessages } from '../../hooks/useMessages';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { subscribeToDevices } from '../../lib/firestore';
-import { copyToClipboard, playSound, loadSettings } from '../../lib/utils';
-import { Device, Message } from '../../types';
-import { getStoredSessionId } from '../../lib/utils';
+import { subscribeToDevices, upsertDevice } from '../../lib/firestore';
+import { copyToClipboard, DEFAULT_SETTINGS, getStoredSessionId, loadSettings, playSound } from '../../lib/utils';
+import { Device } from '../../types';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { deviceId, device, ready, registerDevice } = useDevice();
-  const { sessionId, restoreSession } = usePairing();
   const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [pairedDevices, setPairedDevices] = useState<Device[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
 
-  const settings = loadSettings();
+  useEffect(() => {
+    setSettings(loadSettings());
+  }, []);
 
   // Restore or create session
   useEffect(() => {
     if (!ready || !deviceId) return;
+    let cancelled = false;
+
     const init = async () => {
       const stored = getStoredSessionId();
       if (stored) {
+        if (cancelled) return;
         setActiveSessionId(stored);
         if (device) await registerDevice(stored);
+        if (cancelled) return;
         setSessionReady(true);
       } else {
         router.replace('/pair');
       }
     };
-    init();
-  }, [ready, deviceId, device]);
+
+    void init();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, deviceId, device, registerDevice, router]);
 
   const { messages, typingStatus, newMessageIds, sendMessage, handleTyping, removeMessage } = useMessages(
     activeSessionId,
@@ -84,7 +92,34 @@ export default function DashboardPage() {
       if (settings.autoCopy) copyToClipboard(latest.text);
     }
     prevMessageCountRef.current = messages.length;
-  }, [messages, deviceId]);
+  }, [messages, deviceId, settings.autoCopy, settings.soundEnabled]);
+
+  useEffect(() => {
+    if (!activeSessionId || !deviceId || !settings.notificationsEnabled) return;
+
+    let cancelled = false;
+
+    const syncNotificationToken = async () => {
+      try {
+        const { getFCMToken, requestNotificationPermission } = await import('../../lib/notifications');
+        const granted = await requestNotificationPermission();
+        if (!granted || cancelled) return;
+
+        const fcmToken = await getFCMToken();
+        if (!fcmToken || cancelled) return;
+
+        await upsertDevice({ id: deviceId, sessionId: activeSessionId, fcmToken });
+      } catch {
+        // Push notifications are optional; realtime Firestore sync still works without them.
+      }
+    };
+
+    void syncNotificationToken();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSessionId, deviceId, settings.notificationsEnabled]);
 
   // Auto scroll
   useEffect(() => {

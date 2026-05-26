@@ -1,14 +1,19 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Bell, Volume2, Moon, Sun, Trash2, Unlink,
-  Smartphone, Monitor, Clipboard, Info, Check, Zap
+  ArrowLeft, Bell, Volume2, Trash2, Unlink,
+  Smartphone, Clipboard, Check, Zap
 } from 'lucide-react';
-import { loadSettings, saveSettings, clearStoredSession, DEFAULT_SETTINGS } from '../../lib/utils';
+import {
+  clearStoredSession,
+  DEFAULT_SETTINGS,
+  getStoredSessionId,
+  loadSettings,
+  saveSettings,
+} from '../../lib/utils';
 import { clearMessages } from '../../lib/firestore';
-import { getStoredSessionId } from '../../lib/utils';
 import { AppSettings } from '../../types';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -17,7 +22,7 @@ interface ToggleRowProps {
   sublabel?: string;
   icon: React.ReactNode;
   value: boolean;
-  onChange: (v: boolean) => void;
+  onChange: (v: boolean) => void | Promise<void>;
 }
 
 const ToggleRow = ({ label, sublabel, icon, value, onChange }: ToggleRowProps) => (
@@ -32,7 +37,9 @@ const ToggleRow = ({ label, sublabel, icon, value, onChange }: ToggleRowProps) =
       </div>
     </div>
     <motion.button
-      onClick={() => onChange(!value)}
+      onClick={() => {
+        void onChange(!value);
+      }}
       className={`relative w-11 h-6 rounded-full transition-colors ${value ? 'bg-indigo-500' : 'bg-white/10'}`}
     >
       <motion.div
@@ -46,9 +53,15 @@ const ToggleRow = ({ label, sublabel, icon, value, onChange }: ToggleRowProps) =
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [settings, setSettings] = useState<AppSettings>(loadSettings());
-  const [nickname, setNickname] = useState(settings.deviceNickname || '');
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [nickname, setNickname] = useState('');
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const loaded = loadSettings();
+    setSettings(loaded);
+    setNickname(loaded.deviceNickname || '');
+  }, []);
 
   const updateSettings = (partial: Partial<AppSettings>) => {
     const updated = { ...settings, ...partial };
@@ -65,15 +78,36 @@ export default function SettingsPage() {
   const handleClearHistory = async () => {
     const sessionId = getStoredSessionId();
     if (!sessionId) return;
-    if (!confirm('Clear all messages? This cannot be undone.')) return;
+    if (!window.confirm('Clear all messages? This cannot be undone.')) return;
     await clearMessages(sessionId);
     toast.success('History cleared', { position: 'bottom-center' });
   };
 
   const handleUnpair = () => {
-    if (!confirm('Unpair this device? You will need to scan a QR code again.')) return;
+    if (!window.confirm('Unpair this device? You will need to scan a QR code again.')) return;
     clearStoredSession();
     router.replace('/');
+  };
+
+  const handleNotificationsToggle = async (enabled: boolean) => {
+    if (!enabled) {
+      updateSettings({ notificationsEnabled: false });
+      return;
+    }
+
+    try {
+      const { registerServiceWorker, requestNotificationPermission } = await import('../../lib/notifications');
+      await registerServiceWorker();
+      const granted = await requestNotificationPermission();
+
+      updateSettings({ notificationsEnabled: granted });
+      if (!granted) {
+        toast.error('Notifications are blocked in this browser', { position: 'bottom-center' });
+      }
+    } catch {
+      updateSettings({ notificationsEnabled: false });
+      toast.error('Notifications are blocked in this browser', { position: 'bottom-center' });
+    }
   };
 
   const sectionClass = 'bg-white/4 border border-white/8 rounded-2xl overflow-hidden divide-y divide-white/6 mb-4';
@@ -137,7 +171,7 @@ export default function SettingsPage() {
             sublabel="Toast popups for incoming messages"
             icon={<Bell size={15} />}
             value={settings.notificationsEnabled}
-            onChange={v => updateSettings({ notificationsEnabled: v })}
+            onChange={handleNotificationsToggle}
           />
           <ToggleRow
             label="Sound Feedback"

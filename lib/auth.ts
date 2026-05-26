@@ -32,9 +32,17 @@ export const getDeviceType = (): 'mobile' | 'desktop' | 'unknown' => {
 };
 
 export const generateDeviceId = (): string => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
   const stored = localStorage.getItem('qd_device_id');
   if (stored) return stored;
-  const id = `dev_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+  const randomId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+  const id = `dev_${randomId}_${Date.now()}`;
   localStorage.setItem('qd_device_id', id);
   return id;
 };
