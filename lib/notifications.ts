@@ -58,11 +58,14 @@ export const setupFCMListener = (callback: (msg: Message) => void): (() => void)
 export const showLocalNotification = (title: string, body: string, onClick?: () => void): void => {
   if (typeof window === 'undefined') return;
   if (Notification.permission !== 'granted') return;
-  new Notification(title, {
+  const n = new Notification(title, {
   body,
   icon: '/icons/icon-192.png',
   badge: '/icons/badge-72x72.png',
   tag: 'quickdrop-message',
 } as NotificationOptions);
-  if (onClick) n.onclick = onClick;
+
+if (onClick) n.onclick = onClick;
+
+return n;
 };
