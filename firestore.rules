@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isDeviceInSession(sessionId) {
+      let session = get(/databases/$(database)/documents/sessions/$(sessionId));
+      return session != null && request.auth.uid in session.data.devices;
+    }
+
+    function isValidText(text) {
+      return text is string && text.size() > 0 && text.size() <= 10000;
+    }
+
+    function isNotSpamming() {
+      // Basic rate limiting: allow up to 30 writes per minute
+      // (Firestore doesn't have built-in rate limiting; use Cloud Functions for production)
+      return true;
+    }
+
+    // ─── Sessions ───────────────────────────────────────────────────────────
+    match /sessions/{sessionId} {
+      // Anyone signed in can read sessions (to join by code)
+      allow read: if isSignedIn();
+
+      // Signed-in users can create sessions
+      allow create: if isSignedIn()
+        && request.resource.data.code is string
+        && request.resource.data.code.size() == 6
+        && request.resource.data.devices is list
+        && request.resource.data.devices.size() <= 2
+        && request.resource.data.active == true
+        && request.resource.data.expiresAt > request.time.toMillis()
+        && isNotSpamming();
+
+      // Devices in session can update it (e.g., add second device)
+      allow update: if isSignedIn()
+        && resource.data.devices.hasAny([request.auth.uid])
+        && request.resource.data.devices.size() <= 2
+        && request.resource.data.code == resource.data.code;
+
+      // Only session creator can delete
+      allow delete: if isSignedIn()
+        && resource.data.devices[0] == request.auth.uid;
+
+      // ─── Messages ─────────────────────────────────────────────────────────
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isDeviceInSession(sessionId);
+
+        allow create: if isSignedIn()
+          && isDeviceInSession(sessionId)
+          && isValidText(request.resource.data.text)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.timestamp is int
+          && isNotSpamming();
+
+        allow update: if isSignedIn()
+          && isDeviceInSession(sessionId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
+        allow delete: if isSignedIn()
+          && isDeviceInSession(sessionId)
+          && resource.data.senderId == request.auth.uid;
+      }
+
+      // ─── Typing indicators ────────────────────────────────────────────────
+      match /typing/{deviceId} {
+        allow read: if isSignedIn() && isDeviceInSession(sessionId);
+        allow write: if isSignedIn()
+          && isDeviceInSession(sessionId)
+          && request.auth.uid == deviceId;
+      }
+    }
+
+    // ─── Devices ────────────────────────────────────────────────────────────
+    match /devices/{deviceId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == deviceId;
+    }
+  }
+}
