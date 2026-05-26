@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Bell, Volume2, VibrationIcon, Moon, Sun, Trash2, Unlink,
+  ArrowLeft, Bell, Volume2, Moon, Sun, Trash2, Unlink,
   Smartphone, Monitor, Clipboard, Info, Check, Zap
 } from 'lucide-react';
 import { loadSettings, saveSettings, clearStoredSession, DEFAULT_SETTINGS } from '../../lib/utils';
@@ -145,13 +145,6 @@ export default function SettingsPage() {
             icon={<Volume2 size={15} />}
             value={settings.soundEnabled}
             onChange={v => updateSettings({ soundEnabled: v })}
-          />
-          <ToggleRow
-            label="Vibration"
-            sublabel="Haptic feedback on mobile"
-            icon={<Smartphone size={15} />}
-            value={settings.vibrationEnabled}
-            onChange={v => updateSettings({ vibrationEnabled: v })}
           />
         </div>
 
