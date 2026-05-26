@@ -23,8 +23,8 @@ if (!getApps().length) {
   app = getApps()[0];
 }
 
-const auth = getAuth(app);
-const db = getFirestore(app);
+auth = getAuth(app);
+db = getFirestore(app);
 
 export const getFirebaseMessaging = async (): Promise<Messaging | null> => {
   if (typeof window === 'undefined') return null;
