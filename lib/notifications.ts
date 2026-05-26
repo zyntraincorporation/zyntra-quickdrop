@@ -66,6 +66,4 @@ export const showLocalNotification = (title: string, body: string, onClick?: () 
 } as NotificationOptions);
 
 if (onClick) n.onclick = onClick;
-
-return n;
 };
